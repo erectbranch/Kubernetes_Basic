@@ -19,6 +19,27 @@
 
   > 클라우드 네이티브 애플리케이션을 구축하기 위한 쿠버네티스 클러스터 환경을 이해한다.
 
+
+</br>
+
+## 🚩 정리한 문서 목록
+
+### 📖 Docker 기초
+
+ - [Docker 기초](https://github.com/erectbranch/Kubernetes_Basic/tree/master/ch01)
+
+   > Container, VM(Virtual Machine) vs Container, Docker의 장점, Docker 설치, Docker image
+
+   > Docker 기본 명령어: docker run (-d, -it, -v), docker ps (-a), docker inspect, docker logs (-f), docker exec, docker cp, docker stop, docker start, docker rm, docker tag
+
+   > Docker Hub 원격 저장소: 가입하기, docker login, docker push, docker pull
+
+   > Dockerfile 작성: FROM(base image), RUN, WORKDIR, COPY, ENV, CMD/ENTRYPOINT, ARG
+
+   > Docker Build: docker build (-t, -e)
+
+   > Docker Port-Forwarding: docker run -p
+
 <br/>
 
 ## :mag: 목차

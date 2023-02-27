@@ -353,7 +353,7 @@ docker push erectbranch/nginx
 
 이를 위해서는 우선 특정한 명령을 담은 Dockerfile을 작성해야만 Docker image를 만들 수 있다. Dockerfile은 다음과 같은 명령들을 담고 있다.
 
-- Dockerfile에 bash image를 지정
+- Dockerfile에 base image를 지정
 
   - 예를 들어 리눅스 배포판을 base image로 삼아 custom image를 만들 수 있다. 컨테이너로 사용하기 위해 최소화된 image로 제공하므로 용량이 크지 않다.(ubuntu:18.04 image의 경우 63.3MB)
 
@@ -441,6 +441,222 @@ docker run hello:1 pwd
 ```
 # docker run -e KEY=VALUE <REGISTRY>/<IMAGE>:<TAG>
 docker run -e my_ver=1.5 hello:1
+```
+
+---
+
+### 1.4.3 Dockerfile 심화
+
+- **ARG** 
+
+Dockerfile 안에서 사용할 수 있는 패러미터를 정의한다. `docker build` 명령으로 image를 build할 때 `--build-arg` 옵션을 통해 패러미터를 넘길 수 있다.
+
+앞서 작성한 Dockerfile에 ARG를 추가해 보자.
+
+```
+FROM ubuntu:18.04
+
+RUN apt-get update \
+    && apt-get install -y \
+        curl \
+        python-dev
+
+ARG my_ver=1.0
+
+WORKDIR /root
+COPY hello.py  .
+ENV my_ver 1.0
+
+CMD ["python", "hello.py", "guest"]
+```
+
+이렇게 `ARG`로 명시한 패러미터를 `--build-arg` 옵션을 이용해서 override해 보자.
+
+```bash
+# override 빌드
+docker build . -t hello:2 --build-arg my_ver=2.0
+
+# 실행
+docker run hello:2
+```
+
+이렇게 image build 시점에서 환경변수 값을 override했지만, `docker run`으로 image를 실행하면서 계속해서 여전히 환경변수 값을 바꿔줄 수 있다.
+
+```bash
+docker run -e my_ver=2.5 hello:2
+```
+
+- **ENTRYPOINT**
+
+`CMD`와 유사하지만 `docker run`에 의해 override되지 않는다. 한번 `CMD` 대신 Dockerfile에 추가하고 비교해 보자.
+
+```
+FROM ubuntu:18.04
+
+RUN apt-get update \
+    && apt-get install -y \
+        curl \
+        python-dev
+
+WORKDIR /root
+COPY hello.py .
+ENV my_ver 1.0
+
+ENTRYPOINT ["python", "hello.py", "guest"]
+```
+
+앞서 `CMD`는 docker run을 하면서 `'echo "hello"` 명령을 패러미터를 전달받아서 override되었다. 하지만 `ENTRYPOINT`로 작성했을 경우 실행 명령이 override되지 않고 지정한 명령이 그대로 실행된다.
+
+```bash
+# ENTRYPOINT 버전 빌드
+docker build . -t hello:3
+
+# 패러미터를 입력하여 실행 명령
+# 하지만 ENTRYPOINT로 지정한 명령이 그대로 실행된다.
+docker run hello:3 echo "hello"
+```
+
+그렇다면 guest 부분은 패러미터로 넘겨줄 수 있게 Dockerfile을 수정해 보자.
+
+```
+FROM ubuntu:18.04
+
+RUN apt-get update \
+    && apt-get install -y \
+        curl \
+        python-dev
+
+WORKDIR /root
+COPY hello.py .
+ENV my_ver 1.0
+
+ENTRYPOINT ["python", "hello.py"]
+```
+
+`ENTRYPOINT`에서 "guest" 부분을 지웠다. 이를 다시 빌드해서 'new-guest'라는 패러미터를 전달하며 이미지를 실행해 보자.
+
+```bash
+docker build . -t hello:4
+
+# 패러미터를 전달해서 실행 명령
+docker run hello:4 new-guest
+```
+
+이렇게 실행한 경우 전달된 'new-guest'가 그대로 패러미터로 전달되어 실행된다.(마치 python hello.py new-guest 명령을 실행한 것과 같다.)
+
+> 간단히 말해 `CMD`는 별다른 명령을 패러미터로 주지 않으면 default로 실행되는 명령이고, `ENTRYPOINT`는 image 실행 때 무조건 호출되는 명령이다. `ENTRYPOINT`를 사용했을 때 패러미터를 전달하면 그대로 `ENTRYPOINT`의 패러미터로 전달이 된다.
+
+> 그런데 아예 override가 불가능한 것은 아니다. `docker run --entrypoint`처럼 `--entrypoint` 옵션을 주고 실행하면 강제로 override가 가능하다.
+
+---
+
+## 1.5 docker run 고급
+
+`docker run` 명령에서 사용할 수 있는 몇 가지 옵션을 더 탐색해 보자.
+
+---
+
+### 1.5.1 Network
+
+Container가 외부 트래픽을 전달 받아야 하는 상황이 있을 수 있다. 이럴 때는 로컬 host server와 Container의 port를 매핑시켜서 통신이 가능하게 forwarding을 시켜주어야 한다. `-p` 옵션을 사용한다.
+
+다음 예시는 host의 5000 Port를 Container의 80 Port와 mapping하는 명령이다.
+
+```bash
+# docker run -p <Host_Port>:<CONTAINER_PORT> <IMAGE_NAME>
+docker run -p 5000:80 -d nginx
+
+# 5000번으로 localhost를 호출한다.
+curl localhost:5000
+
+# 혹은 내부/퍼블릭 IP로도 확인할 수 있다.
+curl <내부/퍼블릭 IP>:5000
+```
+
+웹 브라우저로 접속하려면 '내부/외부 IP:5000'으로 접속하면 된다.
+
+---
+
+### 1.5.2 Volume
+
+앞서 Container는 휘발성 process로 종료되면 파일 시스템도 함께 삭제된다고 소개했다. 하지만 Volume을 사용해서 Container의 data를 localhost의 파일 시스템과 연결할 수 있다. 이렇게 localhost에 data를 저장하면 Container가 종료되어도 data가 유지할 수 있다.
+
+> 이를 **volume mount**(볼륨 마운트)라고 한다. 
+
+게다가 host server의 디렉터리와 연결하는 만큼 host server에서 파일을 손쉽게 수정할 수 있다는 장점이 있다. 따라서 변경 사항이 많은 파일은 Volume으로 두어서 사용하는 편이 더 유지보수가 간편하다.
+
+우선 `docker run` 명령 실행 시 `-v` 옵션(Volume)을 사용해서 host의 디렉터리와 Container의 디렉터리를 연결하는 방법을 살펴보자.
+
+- host의 현재 디렉터리와, Container의 `/user/share/nginx` 디렉터리를 연결할 것이다.
+
+```bash
+# docker run -v <HOST_DIR>:<CONTAINER_DIR> <IMAGE_NAME>
+docker run -p 6000:80 -v $(pwd):/user/share/nginx/html/ -d nginx
+```
+
+이제 `echo` 명령을 이용해서 localhost의 현재 디렉터리에 hello.txt 파일을 생성하고, Container에서 해당 파일이 확인되는지 한 번 확인해 보자.
+
+> `echo <문자열> > <파일명>`으로 바로 문자열이 든 파일을 write할 수 있다. 꺽쇠를 두 번(>>) 사용하면 파일에 문자열을 추가(append)한다.
+
+```bash
+echo hello! >> $(pwd)/hello.txt
+```
+
+이제 Container에서 해당 파일이 보이는지 확인해 보자.
+
+```bash
+curl localhost:6000/hello.txt
+```
+
+---
+
+### 1.5.3 User
+
+기본적으로 Container의 user는 root이다. 하지만 보안을 위해서 root가 아닌 일반 user를 사용하게 설정할 수 있다. 이를 위해서는 Dockerfile 내부에 다음과 같은 명령을 추가해 주면 된다.
+
+```
+# Dockerfile
+# base image
+FROM ubuntu:18.04
+
+# Ubuntu user 생성
+# adduser에 'disabled-password' 옵션으로 password 입력 없이, 'gecos ""' 옵션으로 user 정보를 입력 없이 ubuntu라는 이름의 게정을 만든다.
+RUN adduser --disabled-password --gecos "" ubuntu
+
+# 위에서 만든 ubuntu user로 Container가 실행된다.
+USER ubuntu
+```
+
+이제 작성한 Dockerfile을 바탕으로 image를 빌드하고 실행해 보자.
+
+```bash
+# my-user라는 image 생성
+docker build . -t my-user
+
+# ubuntu라는 이름의 user로 Container 실행
+docker run -it my-user bash
+```
+
+이렇게 실행한 경과를 보면 ubuntu라는 계정명을 가진 user로 Container가 실행되었음을 확인할 수 있다. root 권한이 필요한 명령을 사용할 경우 permission denied가 발생한다.
+
+또한 `docker run` 시 `--user` 옵션을 줘서 해당 user로 Container를 실행할 수도 있다. 아래 예시는 root 권한으로 Container를 실행하는 명령이다.
+
+```bash 
+docker run --user root -it my-user bash
+```
+
+---
+
+### 1.5.4 Clean up
+
+마무리로 생성한 모든 Container와 image를 삭제하는 명령을 살펴보자.
+
+```bash
+# 모든 Container 삭제
+docker rm $(docker ps -a -q) -f
+
+# 모든 image 삭제
+docker rmi $(docker images -q) -f
 ```
 
 ---
