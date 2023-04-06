@@ -54,9 +54,9 @@ Docker는 process의 실행 환경을 가상화한다. 그런데 마찬가지로
 
 Docker는 마치 CD player와 동일하다. 사용자가 CD만 들고 있으면 CD player가 있는 어느 컴퓨터에서든지 CD를 재생할 수 있는 것과 마찬가지다. Docker **image**만 가지고 있다면 Docker deamon이 설치된 어느 컴퓨터에서도 Docker process를 실행시킬 수 있다.
 
-- Docker image: 사용자가 실행할 코드가 든 binary이다. CD처럼 한번 생성하면 수정이 불가능ㅎ다ㅏ.
+- Docker image: 사용자가 실행할 코드가 든 binary이다. CD처럼 한번 생성하면 수정이 불가능하다.
 
-- Dockerfile: Docker image를 만들기 위한 recipe이다. 
+- Dockerfile: Docker image를 만들기 위한 recipe이다.
 
 - Docker container: Docker image가 memory 위에 상주하며 실제로 코드가 수행되는 process이다. 종료 시 모든 data가 휘발된다.
 
